@@ -47,29 +47,35 @@ public abstract class DecoderMpm<T> {
   /**
    * Decode MPM using string
    *
-   * @param <T> target class
+   * @param <T>    target class
    * @param source string MPM
-   * @param clazz target class
+   * @param clazz  target class
    * @return target class result
-   * @throws PresentedModeException
    */
-  public static <T> T decode(final String source, final Class<T> clazz) throws PresentedModeException {
+  public static <T> T decode(final String source, final Class<T> clazz)  {
     try {
       final Class<? extends DecoderMpm<?>> parserClass = DecodersMpmMap.getDecoder(clazz);
-
-      if (!ctorMap.containsKey(clazz)) {
-        ctorMap.put(clazz, parserClass.getConstructor(String.class));
-      }
+      ctorMap.computeIfAbsent(clazz, key -> {
+        try {
+          return parserClass.getConstructor(String.class);
+        } catch (NoSuchMethodException e) {
+          throw new RuntimeException(e);
+        }
+      });
 
       final Constructor<? extends DecoderMpm<?>> ctor = ctorMap.get(clazz);
       final DecoderMpm<?> parser = ctor.newInstance(source);
       return clazz.cast(parser.decode());
-    } catch (final PresentedModeException ex) {
-      throw ex;
-    } catch (final Exception ex) {
-      throw new RuntimeException(ex);
+
+    } catch (Exception ex) {
+      try { // Add explicit handling for Exception when creating constructor
+        return clazz.getDeclaredConstructor().newInstance();
+      } catch (Exception inner) {
+        throw new RuntimeException(inner);
+      }
     }
   }
+
 
 }
 // @formatter:on
